@@ -23,6 +23,7 @@ Set-PSReadLineOption -PredictionViewStyle InlineView
 Set-PSReadLineKeyHandler -Key Ctrl+RightArrow -Function ForwardWord 
 Set-PSReadLineKeyHandler -Key End -Function AcceptSuggestion
 Set-PSReadLineKeyHandler -Chord 'Tab' -Function MenuComplete
+Set-PSReadLineKeyHandler -Chord 'Ctrl+Backspace' -Function BackwardKillWord
 Set-PSReadLineOption -ShowToolTips
 Set-PSReadLineOption -CompletionQueryItems 65
 
@@ -69,8 +70,6 @@ $env:JAVA_HOME = "C:\jdk-21"
 
 # Add scripts and VMWare to Path
 $env:Path += ";$env:USERPROFILE\.local\bin\scripts;${env:ProgramFiles(x86)}\VMWare\VMWare Workstation"
-
-Set-PSReadLineKeyHandler -Chord 'Ctrl+Backspace' -Function BackwardKillWord
 
 # Bind Ctrl+F to fuzzy directory search
 Set-PSReadLineKeyHandler -Key Ctrl+f -ScriptBlock {
