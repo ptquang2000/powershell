@@ -81,10 +81,11 @@ Set-PSReadLineKeyHandler -Key Ctrl+f -ScriptBlock {
         fzf
     
     if ($selectedPath) {
-        $dirName = Split-Path $selectedPath -Leaf
-        $tabTitle = $dirName -replace '\.', '_'
-
 	Set-Location -Path $selectedPath
+	[Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
+
+	$dirName = Split-Path $selectedPath -Leaf
+	$tabTitle = $dirName -replace '\.', '_'
 	$host.UI.RawUI.WindowTitle = $tabTitle
     }
 }
@@ -94,7 +95,7 @@ if (-not $env:NVIM_LOG_FILE) {
 }
 
 $ompExe = (Get-Command oh-my-posh -ErrorAction SilentlyContinue).Source
-$themeName = "$env:LOCALAPPDATA\Programs\oh-my-posh\themes\bubbles.omp.json"  # Change this as desired
+$themeName = "$env:LOCALAPPDATA\Programs\oh-my-posh\themes\material.omp.json"  # Change this as desired
 if ($ompExe) {
     & $ompExe init pwsh --config $themeName | Invoke-Expression
 }
