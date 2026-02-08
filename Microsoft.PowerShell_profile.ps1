@@ -3,10 +3,29 @@ $module = "PSReadLine"
 if (-not (Get-Module -ListAvailable $module)) {
     Install-Module $module -Scope CurrentUser -Force
 }
-Import-Module $module
+# ImportTabExpansionPlusPlus 
+$module = "TabExpansionPlusPlus"
+if (-not (Get-Module -ListAvailable $module)) {
+    Install-Module $module -Scope CurrentUser -Force -AllowClobber
+}
+# Import PSReadLine
+$module = "CompletionPredictor"
+if (-not (Get-Module -ListAvailable $module)) {
+    Install-Module $module -Scope CurrentUser -Force -Repository PSGallery
+}
+
+Import-Module PSReadLine
+Import-Module CompletionPredictor 
+Import-Module TabExpansionPlusPlus
 
 Set-PSReadLineOption -PredictionSource HistoryAndPlugin
-Set-PSReadLineOption -PredictionViewStyle ListView
+Set-PSReadLineOption -PredictionViewStyle InlineView
+Set-PSReadLineKeyHandler -Key RightArrow -Function AcceptSuggestion
+Set-PSReadLineKeyHandler -Key Ctrl+RightArrow -Function ForwardWord
+Set-PSReadLineKeyHandler -Key End -Function AcceptSuggestion
+Set-PSReadLineKeyHandler -Chord 'Tab' -Function MenuComplete
+Set-PSReadLineOption -ShowToolTips
+Set-PSReadLineOption -CompletionQueryItems 65
 
 # Update Path Environment Variable
 
@@ -53,7 +72,26 @@ $env:JAVA_HOME = "C:\jdk-21"
 $env:Path += ";$env:USERPROFILE\.local\bin\scripts;${env:ProgramFiles(x86)}\VMWare\VMWare Workstation"
 
 Set-PSReadLineKeyHandler -Chord 'Ctrl+Backspace' -Function BackwardKillWord
-Set-Location -Path $env:HOMEPATH
+
+# Bind Ctrl+F to fuzzy directory search
+Set-PSReadLineKeyHandler -Key Ctrl+f -ScriptBlock {
+    $selectedPath = Get-ChildItem -Path "$env:USERPROFILE\Documents", "$env:USERPROFILE\work", "$env:USERPROFILE\.local\bin", "$env:USERPROFILE\.config" -Recurse -Depth 2 -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -notmatch '[\\/]\.git([\\/]|$)' } |
+        ForEach-Object { $_.FullName } |
+        fzf
+    
+    if ($selectedPath) {
+        $dirName = Split-Path $selectedPath -Leaf
+        $tabTitle = $dirName -replace '\.', '_'
+
+	Set-Location -Path $selectedPath
+	$host.UI.RawUI.WindowTitle = $tabTitle
+    }
+}
+
+if (-not $env:NVIM_LOG_FILE) {
+	Set-Location -Path $env:HOMEPATH
+}
 
 $ompExe = (Get-Command oh-my-posh -ErrorAction SilentlyContinue).Source
 $themeName = "$env:LOCALAPPDATA\Programs\oh-my-posh\themes\bubbles.omp.json"  # Change this as desired
