@@ -20,8 +20,7 @@ Import-Module TabExpansionPlusPlus
 
 Set-PSReadLineOption -PredictionSource HistoryAndPlugin
 Set-PSReadLineOption -PredictionViewStyle InlineView
-Set-PSReadLineKeyHandler -Key RightArrow -Function AcceptSuggestion
-Set-PSReadLineKeyHandler -Key Ctrl+RightArrow -Function ForwardWord
+Set-PSReadLineKeyHandler -Key Ctrl+RightArrow -Function AcceptSuggestion 
 Set-PSReadLineKeyHandler -Key End -Function AcceptSuggestion
 Set-PSReadLineKeyHandler -Chord 'Tab' -Function MenuComplete
 Set-PSReadLineOption -ShowToolTips
