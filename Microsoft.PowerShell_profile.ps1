@@ -97,3 +97,7 @@ $themeName = "$env:LOCALAPPDATA\Programs\oh-my-posh\themes\material.omp.json"  #
 if ($ompExe) {
     & $ompExe init pwsh --config $themeName | Invoke-Expression
 }
+
+$env:QT_DIR="C:\Qt\5.15.10\msvc2017\"
+$env:QT_ARM64_DIR="C:\Qt\5.15.10\win32-arm64-msvc2017\"
+$env:PATH+=";$env:QT_DIR;$env:QT_DIR\bin"
