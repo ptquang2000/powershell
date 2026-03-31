@@ -59,8 +59,9 @@ Function vs2022 { & "$env:ProgramFiles\Microsoft Visual Studio\2022\Professional
 Function buildtools { & "C:\BuildTools\Common7\Tools\VsDevCmd" @args }
 Function crosscompiler { & "C:\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" @args }
 Function cp_sdk { & "$env:USERPROFILE\.local\bin\sync-bin\cp_sdk.bat" @args }
-Function sync_bin { python "$env:USERPROFILE\.local\bin\sync-bin\sync.py" @args }
-Function gen_prj { python "$env:USERPROFILE\.local\bin\upd-sln\gen_prj.py" @args }
+Function sync_bin { python "$env:USERPROFILE\work\sync-bin\sync.py" @args }
+Function gen_prj { python "$env:USERPROFILE\work\upd-sln\gen_prj.py" @args }
+Function opencode { & "$env:LOCALAPPDATA\OpenCode\opencode-cli.exe" @args}
 
 # To set WIX (currently commented out):
 # $env:WIX = "$env:USERPROFILE\wix311-binaries"
@@ -71,21 +72,12 @@ $env:JAVA_HOME = "C:\jdk-21"
 # Add scripts and VMWare to Path
 $env:Path += ";$env:USERPROFILE\.local\bin\scripts;${env:ProgramFiles(x86)}\VMWare\VMWare Workstation"
 
-# Bind Ctrl+F to fuzzy directory search
+# Ctrl+F triggers psmux-sessionizer
+$script:PsmuxSessionizerPath = Join-Path $PSScriptRoot 'psmux-sessionizer.ps1'
 Set-PSReadLineKeyHandler -Key Ctrl+f -ScriptBlock {
-    $selectedPath = Get-ChildItem -Path "$env:USERPROFILE\Documents", "$env:USERPROFILE\work", "$env:USERPROFILE\.local\bin", "$env:USERPROFILE\.config" -Recurse -Depth 2 -Directory -ErrorAction SilentlyContinue |
-        Where-Object { $_.FullName -notmatch '[\\/]\.git([\\/]|$)' } |
-        ForEach-Object { $_.FullName } |
-        fzf
-    
-    if ($selectedPath) {
-	Set-Location -Path $selectedPath
-	[Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
-
-	$dirName = Split-Path $selectedPath -Leaf
-	$tabTitle = $dirName -replace '\.', '_'
-	$host.UI.RawUI.WindowTitle = $tabTitle
-    }
+    [Microsoft.PowerShell.PSConsoleReadLine]::RevertLine()
+    [Microsoft.PowerShell.PSConsoleReadLine]::Insert("& '$script:PsmuxSessionizerPath'")
+    [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
 }
 
 if (-not $env:NVIM_LOG_FILE) {
