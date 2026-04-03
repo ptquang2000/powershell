@@ -72,7 +72,7 @@ $env:JAVA_HOME = "C:\jdk-21"
 # Add scripts and VMWare to Path
 $env:Path += ";$env:USERPROFILE\.local\bin\scripts;${env:ProgramFiles(x86)}\VMWare\VMWare Workstation"
 
-# Ctrl+F triggers psmux-sessionizer
+# Ctrl+F triggers psmux-sessionizer (create/switch sessions via fzf)
 $script:PsmuxSessionizerPath = Join-Path $PSScriptRoot 'psmux-sessionizer.ps1'
 Set-PSReadLineKeyHandler -Key Ctrl+f -ScriptBlock {
     [Microsoft.PowerShell.PSConsoleReadLine]::RevertLine()
