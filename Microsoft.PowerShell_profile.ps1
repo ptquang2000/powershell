@@ -81,13 +81,31 @@ Set-PSReadLineKeyHandler -Key Ctrl+f -ScriptBlock {
 }
 
 if (-not $env:NVIM_LOG_FILE) {
-	Set-Location -Path $env:HOMEPATH
+	# Use $env:TMUX (set by psmux in every pane) instead of spawning
+	# psmux display-message.  The old approach returned exit-code 0 even
+	# from *outside* psmux when a server was already running, making the
+	# check unreliable and also adding ~200 ms startup latency.
+	if (-not $env:TMUX) {
+		Set-Location -Path $env:HOMEPATH
+	}
 }
 
 $ompExe = (Get-Command oh-my-posh -ErrorAction SilentlyContinue).Source
 $themeName = "$env:LOCALAPPDATA\Programs\oh-my-posh\themes\material.omp.json"  # Change this as desired
 if ($ompExe) {
     & $ompExe init pwsh --config $themeName | Invoke-Expression
+}
+
+# Emit OSC 7 (CWD reporting) after every command so psmux can track
+# #{pane_current_path} reliably on Windows (no /proc/PID/cwd fallback).
+# Wraps whatever prompt is already active (oh-my-posh, Starship, etc.).
+if ($env:TMUX) {
+    $script:__OrigPromptFn = $function:prompt
+    function prompt {
+        $uri = 'file://localhost/' + ($PWD.ProviderPath -replace '\\','/')
+        [Console]::Write("`e]7;${uri}`e\")
+        if ($script:__OrigPromptFn) { & $script:__OrigPromptFn } else { "PS> " }
+    }
 }
 
 $env:QT_DIR="C:\Qt\5.15.10\msvc2017\"

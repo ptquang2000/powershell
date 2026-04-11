@@ -45,20 +45,22 @@ if ($Selected -match '^\[PSMUX\]\s+(.+)$') {
 } else {
     $dirName = Split-Path $Selected -Leaf
     $sessionName = $dirName -replace '\.', '_'
+}
 
+# Clear nesting guard for new-session (psmux blocks it when PSMUX_SESSION is set)
+$savedPsmuxSession = $env:PSMUX_SESSION
+$env:PSMUX_SESSION = $null
+try {
     psmux has-session -t $sessionName 2>$null
     if ($LASTEXITCODE -ne 0) {
-        psmux new-session -d -s $sessionName
-        psmux send-keys -t $sessionName "cd '$Selected'" Enter
+        psmux new-session -d -s $sessionName -c $Selected
     }
+} finally {
+    $env:PSMUX_SESSION = $savedPsmuxSession
 }
 
 if ($env:TMUX) {
-    # psmux switch-client CLI is broken — it returns 0 but never switches.
-    # psmux attach from inside nests clients and corrupts the terminal.
-    # The only reliable switch mechanism is psmux's internal choose-session.
-    # Open it so the user can confirm the target (newly created or existing).
-    psmux choose-session
+    psmux switch-client -t $sessionName
 } else {
     psmux attach -t $sessionName
 }
