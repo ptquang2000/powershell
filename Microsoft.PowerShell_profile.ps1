@@ -1,19 +1,4 @@
-$module = "PSReadLine"
-if (-not (Get-Module -ListAvailable $module)) {
-    Install-Module $module -Scope CurrentUser -Force
-}
-$module = "TabExpansionPlusPlus"
-if (-not (Get-Module -ListAvailable $module)) {
-    Install-Module $module -Scope CurrentUser -Force -AllowClobber
-}
-$module = "CompletionPredictor"
-if (-not (Get-Module -ListAvailable $module)) {
-    Install-Module $module -Scope CurrentUser -Force -Repository PSGallery
-}
-
-Import-Module PSReadLine
-Import-Module CompletionPredictor 
-Import-Module TabExpansionPlusPlus
+Import-Module CompletionPredictor
 
 Set-PSReadLineOption -PredictionSource HistoryAndPlugin
 Set-PSReadLineOption -PredictionViewStyle InlineView
@@ -37,15 +22,11 @@ if ($env:PATHEXT -notlike '*.PY*') {
 # Add every BIN_DIR and BIN_DIR\bin to PATH
 $BIN_DIR = Join-Path $env:USERPROFILE ".local\bin"
 if (Test-Path $BIN_DIR) {
-    Get-ChildItem -Directory $BIN_DIR | ForEach-Object {
-        $subdir = $_.FullName
-        $binSubdir = Join-Path $subdir "bin"
-        if (Test-Path $binSubdir) {
-            $env:PATH += ";$binSubdir"
-        } else {
-            $env:PATH += ";$subdir"
-        }
+    $paths = foreach ($d in [System.IO.Directory]::GetDirectories($BIN_DIR)) {
+        $bin = [System.IO.Path]::Combine($d, "bin")
+        if ([System.IO.Directory]::Exists($bin)) { $bin } else { $d }
     }
+    if ($paths) { $env:PATH += ';' + ($paths -join ';') }
 }
 
 Write-Host "`nPATH added`n"
@@ -86,10 +67,11 @@ if (-not $env:NVIM_LOG_FILE) {
 	}
 }
 
-$ompExe = (Get-Command oh-my-posh -ErrorAction SilentlyContinue).Source
-$themeName = "$env:LOCALAPPDATA\Programs\oh-my-posh\themes\material.omp.json"  # Change this as desired
-if ($ompExe) {
-    & $ompExe init pwsh --config $themeName | Invoke-Expression
+# oh-my-posh (cached for fast startup — regenerate with:
+#   oh-my-posh init pwsh --config "$env:LOCALAPPDATA\Programs\oh-my-posh\themes\material.omp.json" > "$PSScriptRoot\oh-my-posh-init.ps1")
+$script:OmpInitPath = Join-Path $PSScriptRoot 'oh-my-posh-init.ps1'
+if (Test-Path $script:OmpInitPath) {
+    . $script:OmpInitPath
 }
 
 # Emit OSC 7 (CWD reporting) after every command so psmux can track
@@ -104,6 +86,8 @@ if ($env:TMUX) {
     }
 }
 
+# Project Env
 $env:QT_DIR="C:\Qt\5.15.10\msvc2017\"
 $env:QT_ARM64_DIR="C:\Qt\5.15.10\win32-arm64-msvc2017\"
 $env:PATH+=";$env:QT_DIR;$env:QT_DIR\bin"
+$env:CMAKE_EXPORT_COMPILE_COMMANDS ="ONE"
