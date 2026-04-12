@@ -7,13 +7,9 @@
 param([string]$Selected)
 
 $searchPaths = @(
-    "$env:LOCALAPPDATA",
-    "$env:USERPROFILE\Documents",
-    "$env:USERPROFILE\Downloads",
-    "$env:USERPROFILE\work",
-    "$env:USERPROFILE\.local\bin",
-    "$env:USERPROFILE\.config"
+    "$env:USERPROFILE"
 )
+$pathDepth = 1
 
 if (-not $Selected) {
     $candidates = @()
@@ -32,7 +28,7 @@ if (-not $Selected) {
         }
     }
 
-    $candidates += Get-ChildItem -Path $searchPaths -Recurse -Depth 2 -Directory -ErrorAction SilentlyContinue |
+    $candidates += Get-ChildItem -Path $searchPaths -Recurse -Depth $pathDepth -Directory -ErrorAction SilentlyContinue |
         Where-Object { $_.FullName -notmatch '[\\/]\.git([\\/]|$)' } |
         ForEach-Object { $_.FullName }
 
