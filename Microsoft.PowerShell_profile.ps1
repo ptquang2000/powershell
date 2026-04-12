@@ -67,11 +67,23 @@ if (-not $env:NVIM_LOG_FILE) {
 	}
 }
 
-# oh-my-posh (cached for fast startup — regenerate with:
-#   oh-my-posh init pwsh --config "$env:LOCALAPPDATA\Programs\oh-my-posh\themes\material.omp.json" > "$PSScriptRoot\oh-my-posh-init.ps1")
-$script:OmpInitPath = Join-Path $PSScriptRoot 'oh-my-posh-init.ps1'
-if (Test-Path $script:OmpInitPath) {
-    . $script:OmpInitPath
+# oh-my-posh (auto-regenerating external cache)
+$script:OmpCachePath = Join-Path $env:LOCALAPPDATA 'oh-my-posh\profile-cache.ps1'
+$script:OmpTheme = "$env:LOCALAPPDATA\Programs\oh-my-posh\themes\material.omp.json"
+
+$script:OmpLoaded = $false
+if (Test-Path $script:OmpCachePath) {
+    try {
+        $script:_prevEAP = $ErrorActionPreference; $ErrorActionPreference = 'Stop'
+        . $script:OmpCachePath
+        $script:OmpLoaded = $true
+    } catch {} finally { $ErrorActionPreference = $script:_prevEAP }
+}
+if (-not $script:OmpLoaded -and (Get-Command oh-my-posh -ErrorAction SilentlyContinue)) {
+    $script:OmpCacheDir = Split-Path $script:OmpCachePath
+    if (-not (Test-Path $script:OmpCacheDir)) { [void](New-Item -ItemType Directory $script:OmpCacheDir -Force) }
+    oh-my-posh init pwsh --config $script:OmpTheme | Set-Content $script:OmpCachePath
+    . $script:OmpCachePath
 }
 
 # Emit OSC 7 (CWD reporting) after every command so psmux can track
@@ -90,4 +102,3 @@ if ($env:TMUX) {
 $env:QT_DIR="C:\Qt\5.15.10\msvc2017\"
 $env:QT_ARM64_DIR="C:\Qt\5.15.10\win32-arm64-msvc2017\"
 $env:PATH+=";$env:QT_DIR;$env:QT_DIR\bin"
-$env:CMAKE_EXPORT_COMPILE_COMMANDS ="ONE"
