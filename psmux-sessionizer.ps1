@@ -7,6 +7,7 @@
 param([string]$Selected)
 
 $searchPaths = @(
+    "$env:LOCALAPPDATA",
     "$env:USERPROFILE\Documents",
     "$env:USERPROFILE\Downloads",
     "$env:USERPROFILE\work",
@@ -18,9 +19,9 @@ if (-not $Selected) {
     $candidates = @()
 
     $currentSession = $null
-    $sessions = psmux list-sessions 2>$null
+    $sessions = psmux -L shared list-sessions 2>$null
     if ($LASTEXITCODE -eq 0 -and $sessions) {
-        $currentSession = psmux display-message -p '#S' 2>$null
+        $currentSession = psmux -L shared display-message -p '#S' 2>$null
         foreach ($line in $sessions -split "`n") {
             if ($line -match '^([^:]+):') {
                 $name = $Matches[1].Trim()
@@ -47,20 +48,20 @@ if ($Selected -match '^\[PSMUX\]\s+(.+)$') {
     $sessionName = $dirName -replace '\.', '_'
 }
 
-# Clear nesting guard for new-session (psmux blocks it when PSMUX_SESSION is set)
+# Clear nesting guard (psmux blocks commands when PSMUX_SESSION is set)
 $savedPsmuxSession = $env:PSMUX_SESSION
 $env:PSMUX_SESSION = $null
 try {
-    psmux has-session -t $sessionName 2>$null
+    psmux -L shared has-session -t $sessionName 2>$null
     if ($LASTEXITCODE -ne 0) {
-        psmux new-session -d -s $sessionName -c $Selected
+        psmux -L shared new-session -d -s $sessionName -c $Selected
+    }
+
+    if ($env:TMUX) {
+        psmux -L shared switch-client -t $sessionName
+    } else {
+        psmux -L shared attach -t $sessionName
     }
 } finally {
     $env:PSMUX_SESSION = $savedPsmuxSession
-}
-
-if ($env:TMUX) {
-    psmux switch-client -t $sessionName
-} else {
-    psmux attach -t $sessionName
 }

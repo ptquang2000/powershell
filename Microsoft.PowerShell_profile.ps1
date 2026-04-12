@@ -1,14 +1,11 @@
-# Import PSReadLine
 $module = "PSReadLine"
 if (-not (Get-Module -ListAvailable $module)) {
     Install-Module $module -Scope CurrentUser -Force
 }
-# ImportTabExpansionPlusPlus 
 $module = "TabExpansionPlusPlus"
 if (-not (Get-Module -ListAvailable $module)) {
     Install-Module $module -Scope CurrentUser -Force -AllowClobber
 }
-# Import PSReadLine
 $module = "CompletionPredictor"
 if (-not (Get-Module -ListAvailable $module)) {
     Install-Module $module -Scope CurrentUser -Force -Repository PSGallery
@@ -56,12 +53,11 @@ Write-Host "`nPATH added`n"
 # VS and Tools shortcuts (PowerShell functions)
 Function vs2017 { & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2017\Professional\Common7\IDE\devenv.exe" @args }
 Function vs2022 { & "$env:ProgramFiles\Microsoft Visual Studio\2022\Professional\Common7\IDE\devenv.exe" @args }
-Function buildtools { & "C:\BuildTools\Common7\Tools\VsDevCmd" @args }
+Function buildtools { & "C:\BuildTools\Common7\Tools\VsDevCmd.bat" @args }
 Function crosscompiler { & "C:\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" @args }
 Function cp_sdk { & "$env:USERPROFILE\.local\bin\sync-bin\cp_sdk.bat" @args }
 Function sync_bin { python "$env:USERPROFILE\work\sync-bin\sync.py" @args }
 Function gen_prj { python "$env:USERPROFILE\work\upd-sln\gen_prj.py" @args }
-Function opencode { & "$env:LOCALAPPDATA\OpenCode\opencode-cli.exe" @args}
 
 # To set WIX (currently commented out):
 # $env:WIX = "$env:USERPROFILE\wix311-binaries"
