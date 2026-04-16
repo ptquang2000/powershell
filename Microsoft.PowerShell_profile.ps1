@@ -67,23 +67,14 @@ if (-not $env:NVIM_LOG_FILE) {
 	}
 }
 
-# oh-my-posh (auto-regenerating external cache)
-$script:OmpCachePath = Join-Path $env:LOCALAPPDATA 'oh-my-posh\profile-cache.ps1'
-$script:OmpTheme = "$env:LOCALAPPDATA\Programs\oh-my-posh\themes\material.omp.json"
-
-$script:OmpLoaded = $false
-if (Test-Path $script:OmpCachePath) {
+# oh-my-posh
+if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
+    $script:OmpTheme = "$env:LOCALAPPDATA\Programs\oh-my-posh\themes\material.omp.json"
     try {
-        $script:_prevEAP = $ErrorActionPreference; $ErrorActionPreference = 'Stop'
-        . $script:OmpCachePath
-        $script:OmpLoaded = $true
-    } catch {} finally { $ErrorActionPreference = $script:_prevEAP }
-}
-if (-not $script:OmpLoaded -and (Get-Command oh-my-posh -ErrorAction SilentlyContinue)) {
-    $script:OmpCacheDir = Split-Path $script:OmpCachePath
-    if (-not (Test-Path $script:OmpCacheDir)) { [void](New-Item -ItemType Directory $script:OmpCacheDir -Force) }
-    oh-my-posh init pwsh --config $script:OmpTheme | Set-Content $script:OmpCachePath
-    . $script:OmpCachePath
+        oh-my-posh init pwsh --config $script:OmpTheme | Invoke-Expression
+    } catch {
+        Write-Warning "oh-my-posh failed to load: $_"
+    }
 }
 
 # Emit OSC 7 (CWD reporting) after every command so psmux can track
