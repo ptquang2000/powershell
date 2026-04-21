@@ -34,8 +34,20 @@ Write-Host "`nPATH added`n"
 # VS and Tools shortcuts (PowerShell functions)
 Function vs2017 { & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2017\Professional\Common7\IDE\devenv.exe" @args }
 Function vs2022 { & "$env:ProgramFiles\Microsoft Visual Studio\2022\Professional\Common7\IDE\devenv.exe" @args }
-Function buildtools { & "C:\BuildTools\Common7\Tools\VsDevCmd.bat" @args }
-Function crosscompiler { & "C:\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" @args }
+Function Invoke-VsBatEnv([string]$BatPath, [string[]]$BatArgs) {
+    $tmp = [System.IO.Path]::GetTempFileName()
+    try {
+        $quoted = ($BatArgs | ForEach-Object { "`"$_`"" }) -join ' '
+        cmd /c " `"$BatPath`" $quoted && set > `"$tmp`" " 2>&1 | Write-Host
+        Get-Content $tmp | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') {
+                [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
+            }
+        }
+    } finally { Remove-Item $tmp -ErrorAction SilentlyContinue }
+}
+Function buildtools { Invoke-VsBatEnv "C:\BuildTools\Common7\Tools\VsDevCmd.bat" $args }
+Function crosscompiler { Invoke-VsBatEnv "C:\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" $args }
 Function cp_sdk { & "$env:USERPROFILE\.local\bin\sync-bin\cp_sdk.bat" @args }
 Function sync_bin { python "$env:USERPROFILE\work\sync-bin\sync.py" @args }
 Function gen_prj { python "$env:USERPROFILE\work\upd-sln\gen_prj.py" @args }
@@ -83,7 +95,7 @@ if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
 if ($env:TMUX) {
     $script:__OrigPromptFn = $function:prompt
     function prompt {
-        $uri = 'file://localhost/' + ($PWD.ProviderPath -replace '\\','/')
+        $uri = 'file://localhost/' + ($(Get-Location).Path -replace '\\','/')
         [Console]::Write("`e]7;${uri}`e\")
         if ($script:__OrigPromptFn) { & $script:__OrigPromptFn } else { "PS> " }
     }
@@ -93,3 +105,4 @@ if ($env:TMUX) {
 $env:QT_DIR="C:\Qt\5.15.10\msvc2017\"
 $env:QT_ARM64_DIR="C:\Qt\5.15.10\win32-arm64-msvc2017\"
 $env:PATH+=";$env:QT_DIR;$env:QT_DIR\bin"
+Invoke-VsBatEnv "C:\BuildTools\Common7\Tools\VsDevCmd.bat" $args 
