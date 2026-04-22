@@ -69,35 +69,12 @@ Set-PSReadLineKeyHandler -Key Ctrl+f -ScriptBlock {
     [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
 }
 
-if (-not $env:NVIM_LOG_FILE) {
-	# Use $env:TMUX (set by psmux in every pane) instead of spawning
-	# psmux display-message.  The old approach returned exit-code 0 even
-	# from *outside* psmux when a server was already running, making the
-	# check unreliable and also adding ~200 ms startup latency.
-	if (-not $env:TMUX) {
-		Set-Location -Path $env:HOMEPATH
-	}
-}
-
 # oh-my-posh
 if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
-    $script:OmpTheme = "$env:LOCALAPPDATA\Programs\oh-my-posh\themes\material.omp.json"
     try {
-        oh-my-posh init pwsh --config $script:OmpTheme | Invoke-Expression
+        oh-my-posh init pwsh --config material | Invoke-Expression
     } catch {
         Write-Warning "oh-my-posh failed to load: $_"
-    }
-}
-
-# Emit OSC 7 (CWD reporting) after every command so psmux can track
-# #{pane_current_path} reliably on Windows (no /proc/PID/cwd fallback).
-# Wraps whatever prompt is already active (oh-my-posh, Starship, etc.).
-if ($env:TMUX) {
-    $script:__OrigPromptFn = $function:prompt
-    function prompt {
-        $uri = 'file://localhost/' + ($(Get-Location).Path -replace '\\','/')
-        [Console]::Write("`e]7;${uri}`e\")
-        if ($script:__OrigPromptFn) { & $script:__OrigPromptFn } else { "PS> " }
     }
 }
 
@@ -105,4 +82,3 @@ if ($env:TMUX) {
 $env:QT_DIR="C:\Qt\5.15.10\msvc2017\"
 $env:QT_ARM64_DIR="C:\Qt\5.15.10\win32-arm64-msvc2017\"
 $env:PATH+=";$env:QT_DIR;$env:QT_DIR\bin"
-Invoke-VsBatEnv "C:\BuildTools\Common7\Tools\VsDevCmd.bat" $args 
