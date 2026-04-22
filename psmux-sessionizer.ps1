@@ -15,9 +15,9 @@ if (-not $Selected) {
     $candidates = @()
 
     $currentSession = $null
-    $sessions = psmux -L shared list-sessions 2>$null
+    $sessions = psmux list-sessions 2>$null
     if ($LASTEXITCODE -eq 0 -and $sessions) {
-        $currentSession = psmux -L shared display-message -p '#S' 2>$null
+        $currentSession = psmux display-message -p '#S' 2>$null
         foreach ($line in $sessions -split "`n") {
             if ($line -match '^([^:]+):') {
                 $name = $Matches[1].Trim()
@@ -44,19 +44,34 @@ if ($Selected -match '^\[PSMUX\]\s+(.+)$') {
     $sessionName = $dirName -replace '\.', '_'
 }
 
-# Clear nesting guard (psmux blocks commands when PSMUX_SESSION is set)
+# psmux's nesting guard silently no-ops new-session and attach when
+# PSMUX_SESSION is set. Clear it for those calls; switch-client is unaffected.
+#
+# Note: we intentionally do NOT use `-L shared`. psmux 3.3.3 has a bug where
+# `switch-client` calls `list_session_names()` without a namespace filter, so
+# any session stored under a socket namespace (port file `<socket>__<name>.port`)
+# is filtered out and becomes unreachable via `switch-client -t <name>`. Using
+# the default namespace keeps sessions visible to switch-client.
 $savedPsmuxSession = $env:PSMUX_SESSION
-$env:PSMUX_SESSION = $null
 try {
-    psmux -L shared has-session -t $sessionName 2>$null
+    psmux has-session -t $sessionName 2>$null
     if ($LASTEXITCODE -ne 0) {
-        psmux -L shared new-session -d -s $sessionName -c $Selected
+        $env:PSMUX_SESSION = $null
+        psmux new-session -d -s $sessionName -c $Selected
+        $createExit = $LASTEXITCODE
+        $env:PSMUX_SESSION = $savedPsmuxSession
+        psmux has-session -t $sessionName 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "psmux new-session failed for '$sessionName' (exit=$createExit, path=$Selected)"
+            exit 1
+        }
     }
 
     if ($env:TMUX) {
-        psmux -L shared switch-client -t $sessionName
+        psmux switch-client -t $sessionName
     } else {
-        psmux -L shared attach -t $sessionName
+        $env:PSMUX_SESSION = $null
+        psmux attach -t $sessionName
     }
 } finally {
     $env:PSMUX_SESSION = $savedPsmuxSession
