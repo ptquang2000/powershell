@@ -46,12 +46,6 @@ if ($Selected -match '^\[PSMUX\]\s+(.+)$') {
 
 # psmux's nesting guard silently no-ops new-session and attach when
 # PSMUX_SESSION is set. Clear it for those calls; switch-client is unaffected.
-#
-# Note: we intentionally do NOT use `-L shared`. psmux 3.3.3 has a bug where
-# `switch-client` calls `list_session_names()` without a namespace filter, so
-# any session stored under a socket namespace (port file `<socket>__<name>.port`)
-# is filtered out and becomes unreachable via `switch-client -t <name>`. Using
-# the default namespace keeps sessions visible to switch-client.
 $savedPsmuxSession = $env:PSMUX_SESSION
 try {
     psmux has-session -t $sessionName 2>$null
@@ -67,7 +61,7 @@ try {
         }
     }
 
-    if ($env:TMUX) {
+    if ($env:TMUX -or $env:PSMUX_SESSION) {
         psmux switch-client -t $sessionName
     } else {
         $env:PSMUX_SESSION = $null

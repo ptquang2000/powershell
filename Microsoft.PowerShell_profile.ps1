@@ -1,3 +1,13 @@
+# Skip expensive profile setup when pwsh is invoked as a one-shot command
+# wrapper (e.g., psmux wraps `new-window <cmd>` as `pwsh -NoLogo -Command <cmd>`).
+# Interactive panes use `-NoExit` so they still load the full profile.
+$__cmdline = [Environment]::GetCommandLineArgs()
+if (($__cmdline -match '^-(Command|c|EncodedCommand|e|File|f)$') -and
+    -not ($__cmdline -match '^-NoExit$')) {
+    return
+}
+Remove-Variable __cmdline
+
 Import-Module CompletionPredictor
 
 Set-PSReadLineOption -PredictionSource HistoryAndPlugin
