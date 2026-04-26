@@ -326,7 +326,7 @@ function Enter-CrossCompiler {
 $script:CpSdkBat   = "$env:USERPROFILE\.local\bin\sync-bin\cp_sdk.bat"
 $script:SyncBinPy  = "$env:USERPROFILE\work\sync-bin\sync.py"
 $script:GenPrjPy   = "$env:USERPROFILE\work\upd-sln\gen_prj.py"
-$script:JavaHome   = "C:\jdk-21"
+$script:WIX				 = "$env:WixToolPath"
 $script:QtDir      = "C:\Qt\5.15.10\msvc2017\"
 $script:QtArm64Dir = "C:\Qt\5.15.10\win32-arm64-msvc2017\"
 
@@ -334,8 +334,8 @@ function Invoke-CpSdk   { & $script:CpSdkBat @args }
 function Invoke-SyncBin { python $script:SyncBinPy @args }
 function Invoke-GenPrj  { python $script:GenPrjPy  @args }
 
-$env:JAVA_HOME   = $script:JavaHome
-$env:QT_DIR      = $script:QtDir
+$env:WIX					= $script:WIX
+$env:QT_DIR				= $script:QtDir
 $env:QT_ARM64_DIR = $script:QtArm64Dir
 
 # Qt paths go on PATH after QT_DIR is assigned
