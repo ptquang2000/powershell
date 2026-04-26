@@ -7,9 +7,10 @@
 param([string]$Selected)
 
 $searchPaths = @(
-    "$env:USERPROFILE"
+    "$env:USERPROFILE",
+    "$env:USERPROFILE\work"
 )
-$pathDepth = 1
+$pathDepth = 0
 
 if (-not $Selected) {
     $candidates = @()

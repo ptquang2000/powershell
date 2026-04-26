@@ -92,10 +92,12 @@ Set-PSReadLineOption -PredictionViewStyle InlineView
 Set-PSReadLineOption -ShowToolTips
 Set-PSReadLineOption -CompletionQueryItems 65
 
-Set-PSReadLineKeyHandler -Key Ctrl+RightArrow -Function ForwardWord
-Set-PSReadLineKeyHandler -Key End            -Function AcceptSuggestion
-Set-PSReadLineKeyHandler -Chord 'Tab'            -Function MenuComplete
-Set-PSReadLineKeyHandler -Chord 'Ctrl+Backspace' -Function BackwardKillWord
+Set-PSReadLineKeyHandler -Chord Ctrl+RightArrow	-Function ForwardWord
+Set-PSReadLineKeyHandler -Chord Ctrl+LeftArrow	-Function BackwardWord
+Set-PSReadLineKeyHandler -Chord Ctrl+Backspace	-Function BackwardDeleteWord
+Set-PSReadLineKeyHandler -Chord Ctrl+Delete			-Function KillWord
+Set-PSReadLineKeyHandler -Chord Tab							-Function MenuComplete
+Set-PSReadLineKeyHandler -Chord RightArrow			-Function AcceptSuggestion
 
 # Ctrl+F triggers psmux-sessionizer (create/switch sessions via fzf)
 $__psmuxRoot = if ($PSScriptRoot) {
@@ -121,9 +123,7 @@ Remove-Variable __psmuxRoot -ErrorAction SilentlyContinue
 
 #region PATH & PATHEXT
 # Core toolchain entries
-Add-PathEntry 'C:\Python314'
-Add-PathEntry 'C:\Python314\Scripts'
-Add-PathEntry 'C:\Strawberry\perl\bin'
+# Add-PathEntry 'C:\Python314'
 
 # Add .PY to PATHEXT (idempotent)
 if ($env:PATHEXT -notlike '*.PY*') {
@@ -135,11 +135,8 @@ $BIN_DIR = Join-Path $env:USERPROFILE '.local\bin'
 if (Test-Path -LiteralPath $BIN_DIR -PathType Container) {
     foreach ($d in [System.IO.Directory]::GetDirectories($BIN_DIR)) {
         $bin = [System.IO.Path]::Combine($d, 'bin')
-        if ([System.IO.Directory]::Exists($bin)) {
-            Add-PathEntry $bin
-        } else {
-            Add-PathEntry $d
-        }
+				Add-PathEntry $bin
+				Add-PathEntry $d
     }
 }
 
