@@ -87,6 +87,8 @@ if (Get-Module -ListAvailable -Name CompletionPredictor) {
 #endregion
 
 #region PSReadLine
+$env:PSHISTORYPATH = $null
+Set-PSReadLineOption -HistoryNoDuplicates
 Set-PSReadLineOption -PredictionSource HistoryAndPlugin
 Set-PSReadLineOption -PredictionViewStyle InlineView
 Set-PSReadLineOption -ShowToolTips
@@ -97,7 +99,6 @@ Set-PSReadLineKeyHandler -Chord Ctrl+LeftArrow	-Function BackwardWord
 Set-PSReadLineKeyHandler -Chord Ctrl+Backspace	-Function BackwardDeleteWord
 Set-PSReadLineKeyHandler -Chord Ctrl+Delete			-Function KillWord
 Set-PSReadLineKeyHandler -Chord Tab							-Function MenuComplete
-Set-PSReadLineKeyHandler -Chord RightArrow			-Function AcceptSuggestion
 
 # Ctrl+F triggers psmux-sessionizer (create/switch sessions via fzf)
 $__psmuxRoot = if ($PSScriptRoot) {
