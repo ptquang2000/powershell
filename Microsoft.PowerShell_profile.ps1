@@ -87,8 +87,7 @@ if (Get-Module -ListAvailable -Name CompletionPredictor) {
 #endregion
 
 #region PSReadLine
-$env:PSHISTORYPATH = $null
-Set-PSReadLineOption -HistoryNoDuplicates
+Set-PSReadLineOption -HistorySaveStyle SaveNothing
 Set-PSReadLineOption -PredictionSource HistoryAndPlugin
 Set-PSReadLineOption -PredictionViewStyle InlineView
 Set-PSReadLineOption -ShowToolTips
@@ -142,6 +141,7 @@ if (Test-Path -LiteralPath $BIN_DIR -PathType Container) {
 }
 
 # Scripts dir and VMWare
+Add-PathEntry (Join-Path $env:USERPROFILE '.local\bin')
 Add-PathEntry (Join-Path $env:USERPROFILE '.local\bin\scripts')
 Add-PathEntry "${env:ProgramFiles(x86)}\VMWare\VMWare Workstation"
 
