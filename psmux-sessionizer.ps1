@@ -4,70 +4,52 @@
 # If no path given, uses fzf to pick from existing sessions + directories.
 # Works both outside and inside a psmux session.
 
-param([string]$Selected)
+param([string]$selected)
 
 $searchPaths = @(
     "$env:USERPROFILE",
     "$env:USERPROFILE\work"
 )
 $pathDepth = 0
+$session = $env:PSMUX_SESSION
 
-if (-not $Selected) {
-    $candidates = @()
-
-    $currentSession = $null
-    $sessions = psmux list-sessions 2>$null
-    if ($LASTEXITCODE -eq 0 -and $sessions) {
-        $currentSession = psmux display-message -p '#S' 2>$null
-        foreach ($line in $sessions -split "`n") {
-            if ($line -match '^([^:]+):') {
-                $name = $Matches[1].Trim()
-                if ($name -ne $currentSession) {
-                    $candidates += "[PSMUX] $name"
-                }
-            }
-        }
-    }
-
-    $candidates += Get-ChildItem -Path $searchPaths -Recurse -Depth $pathDepth -Directory -ErrorAction SilentlyContinue |
-        Where-Object { $_.FullName -notmatch '[\\/]\.git([\\/]|$)' } |
-        ForEach-Object { $_.FullName }
-
-    $Selected = $candidates | fzf
+if (-not $selected) {
+    $selected = @(
+        psmux list-sessions 2>$null |
+            ForEach-Object { ($_ -split ':')[0] } |
+            Where-Object { $_ -and $_ -ne $session } |
+            ForEach-Object { "[PSMUX] $_" }
+        Get-ChildItem -Path $searchPaths -Directory -ErrorAction SilentlyContinue |
+            Where-Object Name -ne '.git' | ForEach-Object { $_.FullName }
+    ) | fzf
 }
 
-if (-not $Selected) { exit 0 }
+if (-not $selected) { exit 0 }
 
-if ($Selected -match '^\[PSMUX\]\s+(.+)$') {
-    $sessionName = $Matches[1].Trim()
+if ($selected -match '^\[PSMUX\]\s+(.+)$') {
+    $name = $Matches[1].Trim()
 } else {
-    $dirName = Split-Path $Selected -Leaf
-    $sessionName = $dirName -replace '\.', '_'
+    $dirName = Split-Path $selected -Leaf
+    $name = $dirName -replace '\.', '_'
 }
 
 # psmux's nesting guard silently no-ops new-session and attach when
 # PSMUX_SESSION is set. Clear it for those calls; switch-client is unaffected.
-$savedPsmuxSession = $env:PSMUX_SESSION
+$env:PSMUX_SESSION = $null
 try {
-    psmux has-session -t $sessionName 2>$null
+    psmux has-session -t $name 2>$null
     if ($LASTEXITCODE -ne 0) {
-        $env:PSMUX_SESSION = $null
-        psmux new-session -d -s $sessionName -c $Selected
-        $createExit = $LASTEXITCODE
-        $env:PSMUX_SESSION = $savedPsmuxSession
-        psmux has-session -t $sessionName 2>$null
+        psmux new-session -d -s $name -c $selected
         if ($LASTEXITCODE -ne 0) {
-            Write-Error "psmux new-session failed for '$sessionName' (exit=$createExit, path=$Selected)"
+            Write-Error "psmux new-session failed for '$name' (path=$selected)"
             exit 1
         }
     }
-
-    if ($env:TMUX -or $env:PSMUX_SESSION) {
-        psmux switch-client -t $sessionName
-    } else {
-        $env:PSMUX_SESSION = $null
-        psmux attach -t $sessionName
-    }
 } finally {
-    $env:PSMUX_SESSION = $savedPsmuxSession
+    $env:PSMUX_SESSION = $session
+    if ($env:TMUX -or $session) {
+        psmux switch-client -t $name
+    } else {
+        psmux attach $name
+    }
 }
