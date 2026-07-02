@@ -1,34 +1,24 @@
 # =============================================================================
 #  Microsoft.PowerShell_profile.ps1
 # -----------------------------------------------------------------------------
-#  Purpose : Interactive pwsh profile for this machine. Configures PSReadLine,
-#            PATH/PATHEXT, tool shortcut functions (Visual Studio, BuildTools,
-#            sync-bin, etc.), project environment variables (JAVA_HOME, QT),
-#            the oh-my-posh prompt, and a Ctrl+F psmux-sessionizer binding.
+#  Interactive pwsh profile ("the .zshrc"): holds all configuration -- PSReadLine
+#  options + key bindings, PATH/PATHEXT, env vars, aliases -- and dot-sources the
+#  native mnml prompt (mnml-prompt.ps1, next to this file).
 #
-#  Load order (top to bottom):
-#    1. Early exit for non-interactive one-shot pwsh invocations
-#    2. Helpers (internal)
-#    3. Modules
-#    4. PSReadLine (options + key handlers, incl. Ctrl+F sessionizer)
-#    5. PATH & PATHEXT
-#    6. Tool shortcut functions (Visual Studio, BuildTools)
-#    7. Work / project-specific functions and env (JAVA_HOME, QT, sync-bin)
-#    8. Prompt (oh-my-posh)
-#
-#  Notes:
-#    - Several functions have been renamed to Verb-Noun form. Command-name
-#      compatibility aliases are provided for every old name (vs2017, vs2022,
-#      buildtools, crosscompiler, cp_sdk, sync_bin, gen_prj), so existing
-#      muscle memory and scripts keep working.
-#    - PATH mutations go through Add-PathEntry which dedupes case-insensitively,
-#      so `. $PROFILE` is idempotent.
+#  Load order:
+#    1. Early exit for non-interactive one-shot invocations (psmux wrappers)
+#    2. Helper functions
+#    3. PSReadLine -- native equivalents of the zsh plugins & bindkeys
+#    4. PATH & PATHEXT
+#    5. Environment variables
+#    6. Aliases
+#    7. Prompt (dot-source mnml-prompt.ps1 + vi-mode wiring)
 # =============================================================================
 
-#region Early exit for non-interactive one-shot invocations
-# Skip expensive profile setup when pwsh is invoked as a one-shot command
-# wrapper (e.g., psmux wraps `new-window <cmd>` as `pwsh -NoLogo -Command <cmd>`).
-# Interactive panes use `-NoExit` so they still load the full profile.
+#region 1. Early exit for non-interactive one-shot invocations
+# psmux wraps `new-window <cmd>` as `pwsh -NoLogo -Command <cmd>`; those don't
+# need the interactive setup below (and PSReadLine can't init on redirected I/O).
+# Interactive panes use `-NoExit`, so they still load the full profile.
 $__cmdline = [Environment]::GetCommandLineArgs()
 if (($__cmdline -match '^-(Command|c|EncodedCommand|e|File|f)$') -and
     -not ($__cmdline -match '^-NoExit$')) {
@@ -37,22 +27,18 @@ if (($__cmdline -match '^-(Command|c|EncodedCommand|e|File|f)$') -and
 Remove-Variable __cmdline
 #endregion
 
-#region Helpers (internal)
+#region 2. Helpers
 function Add-PathEntry {
     <#
     .SYNOPSIS
         Append (or prepend) a directory to $env:Path with dedup + existence checks.
-    .DESCRIPTION
-        Skips empty/whitespace input. Skips non-existent directories unless -Force.
-        Deduplicates case-insensitively against the current $env:Path entries.
+        Skips empty/whitespace input and non-existent dirs (unless -Force).
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [AllowEmptyString()]
-        [AllowNull()]
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [AllowEmptyString()][AllowNull()]
         [string]$Path,
-
         [switch]$Prepend,
         [switch]$Force
     )
@@ -60,302 +46,127 @@ function Add-PathEntry {
         if ([string]::IsNullOrWhiteSpace($Path)) { return }
         if (-not $Force -and -not (Test-Path -LiteralPath $Path -PathType Container)) { return }
 
-        $existing = $env:Path -split ';' | Where-Object { $_ -ne '' }
-        foreach ($e in $existing) {
+        foreach ($e in ($env:Path -split ';')) {
             if ([string]::Equals($e.TrimEnd('\'), $Path.TrimEnd('\'), [System.StringComparison]::OrdinalIgnoreCase)) {
                 return
             }
         }
-
-        if ($Prepend) {
-            $env:Path = "$Path;$($env:Path)"
-        } else {
-            if ($env:Path -and -not $env:Path.EndsWith(';')) {
-                $env:Path = "$($env:Path);$Path"
-            } else {
-                $env:Path = "$($env:Path)$Path"
-            }
-        }
+        $env:Path = if ($Prepend) { "$Path;$env:Path" } else { "$($env:Path.TrimEnd(';'));$Path" }
     }
 }
 #endregion
 
-#region Modules
-if (Get-Module -ListAvailable -Name CompletionPredictor) {
-    Import-Module CompletionPredictor -ErrorAction SilentlyContinue
-}
-#endregion
+#region 3. PSReadLine -- native equivalents of the zsh plugins + bindkeys
+#  zsh-autosuggestions (inline ghost)   -> -PredictionSource History + InlineView
+#  zsh-syntax-highlighting              -> -Colors token coloring
+#  zsh-history-substring-search         -> HistorySearchBackward/Forward on Up/Down
+#  zsh-autocomplete (menu)              -> MenuComplete on Tab
+#  matcher-list case-insensitive        -> PowerShell completion is CI by default
 
-#region PSReadLine
+# history is in-memory only (SaveNothing) -- each session starts fresh, so
+# autosuggestions never surface commands from previous sessions. This diverges
+# from zsh's persistent+shared history on purpose. The other options still apply
+# within the session: cap, dedup (hist_ignore_dups), and hist_ignore_space.
 Set-PSReadLineOption -HistorySaveStyle SaveNothing
-Set-PSReadLineOption -PredictionSource HistoryAndPlugin
+Set-PSReadLineOption -MaximumHistoryCount 10000
+Set-PSReadLineOption -HistoryNoDuplicates                    # hist_ignore_dups
+Set-PSReadLineOption -HistorySearchCursorMovesToEnd
+Set-PSReadLineOption -AddToHistoryHandler { param($line) $line -notmatch '^\s' }  # hist_ignore_space
+
+# inline autosuggestions from history (native -- no external predictor module)
+Set-PSReadLineOption -PredictionSource History
 Set-PSReadLineOption -PredictionViewStyle InlineView
 Set-PSReadLineOption -ShowToolTips
 Set-PSReadLineOption -CompletionQueryItems 65
 
-Set-PSReadLineKeyHandler -Chord Ctrl+RightArrow	-Function ForwardWord
-Set-PSReadLineKeyHandler -Chord Ctrl+LeftArrow	-Function BackwardWord
-Set-PSReadLineKeyHandler -Chord Ctrl+Backspace	-Function BackwardDeleteWord
-Set-PSReadLineKeyHandler -Chord Ctrl+Delete			-Function KillWord
-Set-PSReadLineKeyHandler -Chord Tab							-Function MenuComplete
-
-# Ctrl+F triggers psmux-sessionizer (create/switch sessions via fzf)
-$__psmuxRoot = if ($PSScriptRoot) {
-    $PSScriptRoot
-} elseif ($PROFILE) {
-    Split-Path -Parent $PROFILE
-} else {
-    $null
+# syntax highlighting: color tokens as you type
+Set-PSReadLineOption -Colors @{
+    Command          = "$([char]27)[32m"       # green  (mnml OK color)
+    Parameter        = "$([char]27)[38;5;244m" # gray
+    Operator         = "$([char]27)[38;5;244m" # gray
+    String           = "$([char]27)[33m"       # yellow
+    Number           = "$([char]27)[33m"       # yellow
+    Variable         = "$([char]27)[36m"       # cyan
+    Comment          = "$([char]27)[38;5;244m" # gray
+    Keyword          = "$([char]27)[35m"       # magenta
+    Error            = "$([char]27)[31m"       # red    (mnml ERR color)
+    InlinePrediction = "$([char]27)[38;5;240m" # dim ghost text
 }
 
-if ([string]::IsNullOrWhiteSpace($__psmuxRoot)) {
-    Write-Warning "psmux-sessionizer path could not be resolved; Ctrl+F binding skipped."
-} else {
-    $script:PsmuxSessionizerPath = Join-Path $__psmuxRoot 'psmux-sessionizer.ps1'
-    Set-PSReadLineKeyHandler -Key Ctrl+f -ScriptBlock {
-        [Microsoft.PowerShell.PSConsoleReadLine]::RevertLine()
-        [Microsoft.PowerShell.PSConsoleReadLine]::Insert("& '$script:PsmuxSessionizerPath'")
-        [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
-    }
+# key bindings (mirror of the zsh `bindkey` block)
+Set-PSReadLineKeyHandler -Chord UpArrow         -Function HistorySearchBackward
+Set-PSReadLineKeyHandler -Chord DownArrow       -Function HistorySearchForward
+Set-PSReadLineKeyHandler -Chord Ctrl+Spacebar   -Function AcceptSuggestion       # bindkey "^ "
+Set-PSReadLineKeyHandler -Chord Tab             -Function MenuComplete           # bindkey "^I"
+Set-PSReadLineKeyHandler -Chord Shift+Tab       -Function MenuComplete           # bindkey kcbt
+Set-PSReadLineKeyHandler -Chord Ctrl+RightArrow -Function ForwardWord
+Set-PSReadLineKeyHandler -Chord Ctrl+LeftArrow  -Function BackwardWord
+Set-PSReadLineKeyHandler -Chord Ctrl+Backspace  -Function BackwardDeleteWord
+Set-PSReadLineKeyHandler -Chord Ctrl+h          -Function BackwardDeleteWord     # bindkey "^H"
+Set-PSReadLineKeyHandler -Chord Ctrl+Delete     -Function KillWord
+Set-PSReadLineKeyHandler -Chord Ctrl+a          -Function BeginningOfLine        # bindkey "^A"
+Set-PSReadLineKeyHandler -Chord Ctrl+e          -Function EndOfLine              # bindkey "^E"
+Set-PSReadLineKeyHandler -Chord Home            -Function BeginningOfLine
+Set-PSReadLineKeyHandler -Chord End             -Function EndOfLine
+
+# Ctrl+F -> psmux-sessionizer (bindkey -s "^f")
+$script:PsmuxSessionizer = Join-Path $PSScriptRoot 'psmux-sessionizer.ps1'
+Set-PSReadLineKeyHandler -Key Ctrl+f -ScriptBlock {
+    [Microsoft.PowerShell.PSConsoleReadLine]::RevertLine()
+    [Microsoft.PowerShell.PSConsoleReadLine]::Insert("& '$script:PsmuxSessionizer'")
+    [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
 }
-Remove-Variable __psmuxRoot -ErrorAction SilentlyContinue
 #endregion
 
-#region PATH & PATHEXT
-# Core toolchain entries
-# Add-PathEntry 'C:\Python314'
+#region 4. PATH & PATHEXT
+if ($env:PATHEXT -notlike '*.PY*') { $env:PATHEXT += ';.PY' }
 
-# Add .PY to PATHEXT (idempotent)
-if ($env:PATHEXT -notlike '*.PY*') {
-    $env:PATHEXT += ';.PY'
-}
-
-# Dynamic: every subdir of ~\.local\bin (prefer <subdir>\bin if it exists)
+# every subdir of ~\.local\bin (prefer <subdir>\bin if it exists)
 $BIN_DIR = Join-Path $env:USERPROFILE '.local\bin'
 if (Test-Path -LiteralPath $BIN_DIR -PathType Container) {
     foreach ($d in [System.IO.Directory]::GetDirectories($BIN_DIR)) {
-        $bin = [System.IO.Path]::Combine($d, 'bin')
-				Add-PathEntry $bin
-				Add-PathEntry $d
+        Add-PathEntry ([System.IO.Path]::Combine($d, 'bin'))
+        Add-PathEntry $d
     }
 }
-
-# Scripts dir and VMWare
-Add-PathEntry (Join-Path $env:USERPROFILE '.local\bin')
-Add-PathEntry (Join-Path $env:USERPROFILE '.local\bin\scripts')
+Add-PathEntry $BIN_DIR
+Add-PathEntry (Join-Path $BIN_DIR 'scripts')
 Add-PathEntry "${env:ProgramFiles(x86)}\VMWare\VMWare Workstation"
-
-Write-Verbose "PATH entries added"
+Add-PathEntry (Join-Path $env:USERPROFILE '.opencode\bin') -Prepend   # zsh: PATH=$HOME/.opencode/bin:$PATH
 #endregion
 
-#region Tool shortcut functions (Visual Studio, BuildTools)
-$script:VS2017_DevEnv = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2017\Professional\Common7\IDE\devenv.exe"
-$script:VS2022_DevEnv = "$env:ProgramFiles\Microsoft Visual Studio\2022\Professional\Common7\IDE\devenv.exe"
-$script:VsDevCmdBat   = "C:\BuildTools\Common7\Tools\VsDevCmd.bat"
-$script:VcVarsAllBat  = "C:\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
-$script:VsWhereExe    = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-
-function Resolve-VsInstallRoot {
-    <#
-    .SYNOPSIS
-        Resolve a Visual Studio / Build Tools installation root.
-        Prefers C:\BuildTools when present, otherwise falls back to vswhere -latest.
-        Returns $null if nothing is found (caller is responsible for error handling).
-    #>
-    [CmdletBinding()]
-    param()
-
-    if (Test-Path -LiteralPath 'C:\BuildTools\Common7\Tools\VsDevCmd.bat') {
-        return 'C:\BuildTools'
-    }
-    if (Test-Path -LiteralPath $script:VsWhereExe) {
-        try {
-            $root = & $script:VsWhereExe -latest -products '*' `
-                -requires Microsoft.Component.MSBuild `
-                -property installationPath 2>$null | Select-Object -First 1
-            if ($root -and (Test-Path -LiteralPath $root)) {
-                return $root
-            }
-        } catch {
-            Write-Verbose "vswhere failed: $_"
-        }
-    }
-    return $null
-}
-
-function Resolve-VsBatPath {
-    <#
-    .SYNOPSIS
-        Resolve a VS *.bat under the discovered install root, given a relative subpath.
-    #>
-    [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$RelativePath)
-
-    $root = Resolve-VsInstallRoot
-    if (-not $root) { return $null }
-    $full = Join-Path $root $RelativePath
-    if (Test-Path -LiteralPath $full) { return $full }
-    return $null
-}
-
-function Start-VS2017 {
-    if (-not (Test-Path -LiteralPath $script:VS2017_DevEnv)) {
-        Write-Warning "Visual Studio 2017 devenv.exe not found at: $script:VS2017_DevEnv"
-        return
-    }
-    & $script:VS2017_DevEnv @args
-}
-
-function Start-VS2022 {
-    if (-not (Test-Path -LiteralPath $script:VS2022_DevEnv)) {
-        Write-Warning "Visual Studio 2022 devenv.exe not found at: $script:VS2022_DevEnv"
-        return
-    }
-    & $script:VS2022_DevEnv @args
-}
-
-function Invoke-VsBatEnv {
-    <#
-    .SYNOPSIS
-        Run a VS-style *.bat env initializer and import the resulting env vars
-        into the current PowerShell process.
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory, Position = 0)]
-        [string]$BatPath,
-
-        [Parameter(Position = 1, ValueFromRemainingArguments)]
-        [string[]]$BatArgs
-    )
-
-    if (-not (Test-Path -LiteralPath $BatPath)) {
-        Write-Error "VS env batch file not found: $BatPath"
-        return
-    }
-
-    $tmp = [System.IO.Path]::GetTempFileName()
-    try {
-        $quoted = if ($BatArgs) {
-            (@($BatArgs) | Where-Object { -not [string]::IsNullOrEmpty($_) } |
-                ForEach-Object {
-                    if ($_ -match '\s') { "`"$_`"" } else { $_ }
-                }) -join ' '
-        } else { '' }
-        # Run the bat, then dump env to $tmp. Use `call` + explicit exit so we
-        # propagate the bat's errorlevel back to PowerShell via $LASTEXITCODE,
-        # and so that `set` runs even when the bat sets a non-zero errorlevel
-        # (we still want to see whatever it printed).
-        $cmdLine = " call `"$BatPath`" $quoted & set _vsbat_rc=%ERRORLEVEL% & set > `"$tmp`" & exit /b %_vsbat_rc% "
-        $output = & cmd /c $cmdLine 2>&1
-        $rc = $LASTEXITCODE
-        Write-Verbose ($output -join [Environment]::NewLine)
-
-        if ($rc -ne 0) {
-            $msg  = "VS env batch failed (exit $rc): $BatPath $quoted"
-            if ($output) { $msg += [Environment]::NewLine + ($output -join [Environment]::NewLine) }
-            Write-Error $msg
-            return
-        }
-
-        if (-not (Test-Path -LiteralPath $tmp) -or ((Get-Item -LiteralPath $tmp).Length -eq 0)) {
-            Write-Error "VS env batch produced no environment output: $BatPath $quoted"
-            return
-        }
-
-        Get-Content -LiteralPath $tmp | ForEach-Object {
-            if ($_ -match '^([^=]+)=(.*)$' -and $Matches[1] -ne '_vsbat_rc') {
-                [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2], 'Process')
-            }
-        }
-    } finally {
-        Remove-Item $tmp -ErrorAction SilentlyContinue
-    }
-}
-
-function Enter-BuildTools {
-    <#
-    .SYNOPSIS
-        Import a Visual Studio / Build Tools developer environment (VsDevCmd.bat).
-    #>
-    [CmdletBinding()]
-    param([Parameter(ValueFromRemainingArguments)][string[]]$BatArgs)
-
-    $bat = if (Test-Path -LiteralPath $script:VsDevCmdBat) {
-        $script:VsDevCmdBat
-    } else {
-        Resolve-VsBatPath 'Common7\Tools\VsDevCmd.bat'
-    }
-    if (-not $bat) {
-        Write-Error "Could not locate VsDevCmd.bat. Checked '$script:VsDevCmdBat' and vswhere ('$script:VsWhereExe'). Install Build Tools or Visual Studio."
-        return
-    }
-    Invoke-VsBatEnv $bat @BatArgs
-}
-
-function Enter-CrossCompiler {
-    <#
-    .SYNOPSIS
-        Import a VC cross-compiler environment (vcvarsall.bat). Defaults to amd64.
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Position = 0)]
-        [string]$Arch = 'amd64',
-
-        [Parameter(ValueFromRemainingArguments)]
-        [string[]]$ExtraArgs
-    )
-
-    $bat = if (Test-Path -LiteralPath $script:VcVarsAllBat) {
-        $script:VcVarsAllBat
-    } else {
-        Resolve-VsBatPath 'VC\Auxiliary\Build\vcvarsall.bat'
-    }
-    if (-not $bat) {
-        Write-Error "Could not locate vcvarsall.bat. Checked '$script:VcVarsAllBat' and vswhere ('$script:VsWhereExe'). Install Build Tools or Visual Studio with the C++ workload."
-        return
-    }
-    Invoke-VsBatEnv $bat $Arch @ExtraArgs
-}
-#endregion
-
-#region Work / project-specific functions and env
-$script:CpSdkBat   = "$env:USERPROFILE\.local\bin\sync-bin\cp_sdk.bat"
-$script:SyncBinPy  = "$env:USERPROFILE\work\sync-bin\sync.py"
-$script:GenPrjPy   = "$env:USERPROFILE\work\upd-sln\gen_prj.py"
-$script:WIX				 = "$env:WixToolPath"
-$script:QtDir      = "C:\Qt\5.15.10\msvc2017\"
-$script:QtArm64Dir = "C:\Qt\5.15.10\win32-arm64-msvc2017\"
-
-function Invoke-CpSdk   { & $script:CpSdkBat @args }
-function Invoke-SyncBin { python $script:SyncBinPy @args }
-function Invoke-GenPrj  { python $script:GenPrjPy  @args }
-
-$env:WIX					= $script:WIX
-$env:QT_DIR				= $script:QtDir
-$env:QT_ARM64_DIR = $script:QtArm64Dir
-
-# Qt paths go on PATH after QT_DIR is assigned
+#region 5. Environment variables
+$env:WIX          = $env:WixToolPath
+$env:QT_DIR       = "C:\Qt\5.15.10\msvc2017\"
+$env:QT_ARM64_DIR = "C:\Qt\5.15.10\win32-arm64-msvc2017\"
 Add-PathEntry $env:QT_DIR
 Add-PathEntry (Join-Path $env:QT_DIR 'bin')
-
-# Command-name-compat aliases for renamed functions
-Set-Alias -Name vs2017        -Value Start-VS2017        -Scope Global -Force
-Set-Alias -Name vs2022        -Value Start-VS2022        -Scope Global -Force
-Set-Alias -Name buildtools    -Value Enter-BuildTools    -Scope Global -Force
-Set-Alias -Name crosscompiler -Value Enter-CrossCompiler -Scope Global -Force
-Set-Alias -Name cp_sdk        -Value Invoke-CpSdk        -Scope Global -Force
-Set-Alias -Name sync_bin      -Value Invoke-SyncBin      -Scope Global -Force
-Set-Alias -Name gen_prj       -Value Invoke-GenPrj       -Scope Global -Force
 #endregion
 
-#region Prompt (oh-my-posh)
-if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
-    try {
-        oh-my-posh init pwsh --config material | Invoke-Expression
-    } catch {
-        Write-Warning "oh-my-posh failed to load: $_"
+#region 6. Aliases
+Set-Alias -Name vs2017 -Value "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2017\Professional\Common7\IDE\devenv.exe" -Scope Global -Force
+Set-Alias -Name vs2022 -Value "$env:ProgramFiles\Microsoft Visual Studio\2022\Professional\Common7\IDE\devenv.exe" -Scope Global -Force
+
+function cp_sdk { & "$env:USERPROFILE\.local\bin\sync-bin\cp_sdk.bat" @args }
+function gen_prj { python "$env:USERPROFILE\work\upd-sln\gen_prj.py" @args }
+
+# match zsh: alias clear='clear && printf "\e[3J"' -- also wipe the scrollback buffer.
+# (aliases outrank functions in PowerShell, so override the built-in `clear` alias)
+function Clear-Screen { Clear-Host; [Console]::Write("$([char]27)[3J") }
+Set-Alias -Name clear -Value Clear-Screen -Scope Global -Force
+#endregion
+
+#region 7. Prompt
+. (Join-Path $PSScriptRoot 'mnml-prompt.ps1')
+
+# keep the mnml prompt's $script:PromptViMode in sync with PSReadLine's vi mode
+# (no-op under the default Windows edit mode -- the handler never fires)
+try {
+    Set-PSReadLineOption -ViModeIndicator Script -ViModeChangeHandler {
+        param([Microsoft.PowerShell.ViMode]$mode)
+        $script:PromptViMode = if ($mode -eq 'Command') { 'Command' } else { 'Insert' }
     }
+} catch {
+    Write-Verbose "ViModeChangeHandler not set: $_"
 }
 #endregion
