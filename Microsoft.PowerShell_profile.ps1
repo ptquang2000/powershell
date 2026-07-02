@@ -80,17 +80,19 @@ Set-PSReadLineOption -ShowToolTips
 Set-PSReadLineOption -CompletionQueryItems 65
 
 # syntax highlighting: color tokens as you type
+# gruvbox-material (dark medium) palette, truecolor
 Set-PSReadLineOption -Colors @{
-    Command          = "$([char]27)[32m"       # green  (mnml OK color)
-    Parameter        = "$([char]27)[38;5;244m" # gray
-    Operator         = "$([char]27)[38;5;244m" # gray
-    String           = "$([char]27)[33m"       # yellow
-    Number           = "$([char]27)[33m"       # yellow
-    Variable         = "$([char]27)[36m"       # cyan
-    Comment          = "$([char]27)[38;5;244m" # gray
-    Keyword          = "$([char]27)[35m"       # magenta
-    Error            = "$([char]27)[31m"       # red    (mnml ERR color)
-    InlinePrediction = "$([char]27)[38;5;240m" # dim ghost text
+    Command          = "$([char]27)[38;2;137;180;130m" # aqua    #89b482
+    Parameter        = "$([char]27)[38;2;212;190;152m" # fg      #d4be98
+    Operator         = "$([char]27)[38;2;231;138;78m"  # orange  #e78a4e
+    String           = "$([char]27)[38;2;169;182;101m" # green   #a9b665
+    Number           = "$([char]27)[38;2;211;134;155m" # purple  #d3869b
+    Variable         = "$([char]27)[38;2;125;174;163m" # blue    #7daea3
+    Comment          = "$([char]27)[38;2;146;131;116m" # gray    #928374
+    Keyword          = "$([char]27)[38;2;234;105;98m"  # red     #ea6962
+    Type             = "$([char]27)[38;2;216;166;87m"  # yellow  #d8a657
+    Error            = "$([char]27)[38;2;234;105;98m"  # red     #ea6962
+    InlinePrediction = "$([char]27)[38;2;124;111;100m" # bg4     #7c6f64  (dim ghost)
 }
 
 # key bindings (mirror of the zsh `bindkey` block)

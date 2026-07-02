@@ -18,7 +18,7 @@
 # theme defaults (self-contained, mirroring mnml's MNML_* defaults).
 # Glyphs MUST stay in the BMP (single UTF-16 unit): astral chars like U+F0B5F
 # are surrogate pairs that PSReadLine miscounts, leaving render debris.
-$script:PromptGlyphUser   = [char]::ConvertFromUtf32(0xF0DF7)  # nf-md-bat (astral!)
+$script:PromptGlyphUser   = [char]::ConvertFromUtf32(0x1F987)  # 🦇 U+1F987 bat emoji (astral!)
 $script:PromptGlyphNormal = [char]0x00B7                       # middle dot
 $script:PromptViMode      = 'Insert'                           # updated by the profile's ViModeChangeHandler
 
@@ -28,10 +28,12 @@ function prompt {
 
     $e     = [char]27
     $reset = "$e[0m"
-    $gray  = "$e[38;5;244m"
-    $green = "$e[32m"
-    $red   = "$e[31m"
-    $blue  = "$e[34m"
+    # gruvbox-material (dark medium) palette, truecolor
+    $gray    = "$e[38;2;146;131;116m"   # #928374
+    $green   = "$e[38;2;169;182;101m"   # #a9b665
+    $red     = "$e[38;2;234;105;98m"    # #ea6962
+    $blue    = "$e[38;2;125;174;163m"   # #7daea3
+    $magenta = "$e[38;2;211;134;155m"   # #d3869b  (purple)
 
     $sb = [System.Text.StringBuilder]::new()
 
@@ -72,7 +74,7 @@ function prompt {
                 $h = Get-Content -LiteralPath $head -TotalCount 1
                 $branch = if ($h -match '^ref:\s*refs/heads/(.+)$') { $Matches[1] }
                           elseif ($h) { $h.Substring(0, [Math]::Min(7, $h.Length)) }
-                if ($branch) { [void]$sb.Append("$green$branch$reset ") }
+                if ($branch) { [void]$sb.Append("$magenta$branch$reset ") }
             }
             break
         }
