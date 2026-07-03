@@ -6,28 +6,15 @@
 #  native mnml prompt (mnml-prompt.ps1, next to this file).
 #
 #  Load order:
-#    1. Early exit for non-interactive one-shot invocations (psmux wrappers)
-#    2. Helper functions
-#    3. PSReadLine -- native equivalents of the zsh plugins & bindkeys
-#    4. PATH & PATHEXT
-#    5. Environment variables
-#    6. Aliases
-#    7. Prompt (dot-source mnml-prompt.ps1 + vi-mode wiring)
+#    1. Helper functions
+#    2. PSReadLine -- native equivalents of the zsh plugins & bindkeys
+#    3. PATH & PATHEXT
+#    4. Environment variables
+#    5. Aliases
+#    6. Prompt (dot-source mnml-prompt.ps1 + vi-mode wiring)
 # =============================================================================
 
-#region 1. Early exit for non-interactive one-shot invocations
-# psmux wraps `new-window <cmd>` as `pwsh -NoLogo -Command <cmd>`; those don't
-# need the interactive setup below (and PSReadLine can't init on redirected I/O).
-# Interactive panes use `-NoExit`, so they still load the full profile.
-$__cmdline = [Environment]::GetCommandLineArgs()
-if (($__cmdline -match '^-(Command|c|EncodedCommand|e|File|f)$') -and
-    -not ($__cmdline -match '^-NoExit$')) {
-    return
-}
-Remove-Variable __cmdline
-#endregion
-
-#region 2. Helpers
+#region 1. Helpers
 function Add-PathEntry {
     <#
     .SYNOPSIS
@@ -56,7 +43,7 @@ function Add-PathEntry {
 }
 #endregion
 
-#region 3. PSReadLine -- native equivalents of the zsh plugins + bindkeys
+#region 2. PSReadLine -- native equivalents of the zsh plugins + bindkeys
 #  zsh-autosuggestions (inline ghost)   -> -PredictionSource History + InlineView
 #  zsh-syntax-highlighting              -> -Colors token coloring
 #  zsh-history-substring-search         -> HistorySearchBackward/Forward on Up/Down
@@ -120,7 +107,7 @@ Set-PSReadLineKeyHandler -Key Ctrl+f -ScriptBlock {
 }
 #endregion
 
-#region 4. PATH & PATHEXT
+#region 3. PATH & PATHEXT
 if ($env:PATHEXT -notlike '*.PY*') { $env:PATHEXT += ';.PY' }
 
 # every subdir of ~\.local\bin (prefer <subdir>\bin if it exists)
@@ -137,7 +124,7 @@ Add-PathEntry "${env:ProgramFiles(x86)}\VMWare\VMWare Workstation"
 Add-PathEntry (Join-Path $env:USERPROFILE '.opencode\bin') -Prepend   # zsh: PATH=$HOME/.opencode/bin:$PATH
 #endregion
 
-#region 5. Environment variables
+#region 4. Environment variables
 $env:WIX          = $env:WixToolPath
 $env:QT_DIR       = "C:\Qt\5.15.10\msvc2017\"
 $env:QT_ARM64_DIR = "C:\Qt\5.15.10\win32-arm64-msvc2017\"
@@ -145,7 +132,7 @@ Add-PathEntry $env:QT_DIR
 Add-PathEntry (Join-Path $env:QT_DIR 'bin')
 #endregion
 
-#region 6. Aliases
+#region 5. Aliases
 Set-Alias -Name vs2017 -Value "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2017\Professional\Common7\IDE\devenv.exe" -Scope Global -Force
 Set-Alias -Name vs2022 -Value "$env:ProgramFiles\Microsoft Visual Studio\2022\Professional\Common7\IDE\devenv.exe" -Scope Global -Force
 
@@ -158,7 +145,7 @@ function Clear-Screen { Clear-Host; [Console]::Write("$([char]27)[3J") }
 Set-Alias -Name clear -Value Clear-Screen -Scope Global -Force
 #endregion
 
-#region 7. Prompt
+#region 6. Prompt
 . (Join-Path $PSScriptRoot 'mnml-prompt.ps1')
 
 # keep the mnml prompt's $script:PromptViMode in sync with PSReadLine's vi mode

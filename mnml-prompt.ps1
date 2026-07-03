@@ -16,9 +16,9 @@
 # =============================================================================
 
 # theme defaults (self-contained, mirroring mnml's MNML_* defaults).
-# Glyphs MUST stay in the BMP (single UTF-16 unit): astral chars like U+F0B5F
-# are surrogate pairs that PSReadLine miscounts, leaving render debris.
-$script:PromptGlyphUser   = [char]::ConvertFromUtf32(0x1F987)  # 🦇 U+1F987 bat emoji (astral!)
+# Glyph is a Nerd Font (Material Design Icons) PUA codepoint. Astral chars
+# (surrogate pairs) render fine here; ConvertFromUtf32 handles the encoding.
+$script:PromptGlyphUser   = [char]::ConvertFromUtf32(0xF0B5F)  # nf-md glyph U+F0B5F
 $script:PromptGlyphNormal = [char]0x00B7                       # middle dot
 $script:PromptViMode      = 'Insert'                           # updated by the profile's ViModeChangeHandler
 
