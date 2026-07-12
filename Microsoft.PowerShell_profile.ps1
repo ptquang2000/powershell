@@ -136,6 +136,20 @@ Add-PathEntry (Join-Path $env:QT_DIR 'bin')
 Set-Alias -Name vs2017 -Value "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2017\Professional\Common7\IDE\devenv.exe" -Scope Global -Force
 Set-Alias -Name vs2022 -Value "$env:ProgramFiles\Microsoft Visual Studio\2022\Professional\Common7\IDE\devenv.exe" -Scope Global -Force
 
+# Enter a VS2022 Developer PowerShell in-place. -SkipAutomaticLocation keeps the
+# current directory (Enter-VsDevShell would otherwise cd to the VS install).
+# Target by -VsInstallPath (stable) rather than a machine-specific instance id.
+# Any args pass through to VsDevCmd, e.g. `vsshell -arch=x64 -host_arch=x64`.
+function vsshell {
+    $vsPath = "$env:ProgramFiles\Microsoft Visual Studio\2022\Professional"
+    Import-Module "$vsPath\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+    if ($args.Count) {
+        Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments ($args -join ' ')
+    } else {
+        Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation
+    }
+}
+
 function cp_sdk { & "$env:USERPROFILE\.local\bin\sync-bin\cp_sdk.bat" @args }
 function gen_prj { python "$env:USERPROFILE\work\upd-sln\gen_prj.py" @args }
 
