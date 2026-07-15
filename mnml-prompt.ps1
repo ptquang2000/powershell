@@ -16,9 +16,12 @@
 # =============================================================================
 
 # theme defaults (self-contained, mirroring mnml's MNML_* defaults).
-# Glyph is a Nerd Font (Material Design Icons) PUA codepoint. Astral chars
-# (surrogate pairs) render fine here; ConvertFromUtf32 handles the encoding.
-$script:PromptGlyphUser   = [char]::ConvertFromUtf32(0xF0B5F)  # nf-md glyph U+F0B5F
+# Glyph MUST be a BMP codepoint (<= U+FFFF, a single UTF-16 unit). Astral PUA
+# glyphs (e.g. nf-md, U+F0000+) are surrogate pairs: the console draws them 2
+# cells wide while PSReadLine's cursor model counts them as 1, and the drift
+# makes every inline-prediction repaint smear stale ghost chars across the
+# screen. Stay in a BMP Nerd Font set (nf-cod/nf-fa/nf-oct/Powerline).
+$script:PromptGlyphUser   = [char]0xEBC7                       # nf-cod glyph U+EBC7 (BMP)
 $script:PromptGlyphNormal = [char]0x00B7                       # middle dot
 $script:PromptViMode      = 'Insert'                           # updated by the profile's ViModeChangeHandler
 
