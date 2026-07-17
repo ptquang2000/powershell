@@ -157,6 +157,32 @@ function gen_prj { python "$env:USERPROFILE\work\upd-sln\gen_prj.py" @args }
 # (aliases outrank functions in PowerShell, so override the built-in `clear` alias)
 function Clear-Screen { Clear-Host; [Console]::Write("$([char]27)[3J") }
 Set-Alias -Name clear -Value Clear-Screen -Scope Global -Force
+
+# `top` -- Task-Manager-style live CPU% + working set, sorted by CPU.
+# CPU% is the delta of accumulated CPU time over the sampling window, normalized
+# by logical core count (same math as Task Manager) -- so a process pinning one
+# core on an 8-core box reads ~12.5%, and the total across all rows tops out near
+# 100%. This two-snapshot approach avoids Get-Counter's flaky invalid-sample data.
+#   top            # top 15 over a 1s window
+#   top 30         # top 30 rows
+#   top 30 3       # top 30 over a 3s window (better on a mostly-idle machine)
+function top {
+    param([int]$Count = 15, [double]$Interval = 1)
+
+    $cores = [Environment]::ProcessorCount
+    $t1 = @{}; Get-Process | ForEach-Object { $t1[$_.Id] = $_.CPU }
+    Start-Sleep -Seconds $Interval
+    Get-Process | ForEach-Object {
+        $old = $t1[$_.Id]
+        $cpu = if ($null -ne $old) { (($_.CPU - $old) / $Interval / $cores) * 100 } else { 0 }
+        [PSCustomObject]@{
+            Name     = $_.ProcessName
+            Id       = $_.Id
+            'CPU%'   = [math]::Round($cpu, 1)
+            'WS(MB)' = [math]::Round($_.WorkingSet64 / 1MB, 1)
+        }
+    } | Sort-Object 'CPU%', 'WS(MB)' -Descending | Select-Object -First $Count | Format-Table -AutoSize
+}
 #endregion
 
 #region 6. Prompt
