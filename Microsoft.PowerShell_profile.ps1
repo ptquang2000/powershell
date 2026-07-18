@@ -9,8 +9,8 @@
 #    1. Helper functions
 #    2. PSReadLine -- native equivalents of the zsh plugins & bindkeys
 #    3. PATH & PATHEXT
-#    4. Environment variables
-#    5. Aliases
+#    4. Aliases
+#    5. Local overrides (dot-source git-ignored env.ps1 if present)
 #    6. Prompt (dot-source mnml-prompt.ps1 + vi-mode wiring)
 # =============================================================================
 
@@ -119,23 +119,10 @@ if (Test-Path -LiteralPath $BIN_DIR -PathType Container) {
     }
 }
 Add-PathEntry $BIN_DIR
-Add-PathEntry (Join-Path $BIN_DIR 'scripts')
-Add-PathEntry "${env:ProgramFiles(x86)}\VMWare\VMWare Workstation"
 Add-PathEntry (Join-Path $env:USERPROFILE '.opencode\bin') -Prepend   # zsh: PATH=$HOME/.opencode/bin:$PATH
 #endregion
 
-#region 4. Environment variables
-$env:WIX          = $env:WixToolPath
-$env:QT_DIR       = "C:\Qt\5.15.10\msvc2017\"
-$env:QT_ARM64_DIR = "C:\Qt\5.15.10\win32-arm64-msvc2017\"
-Add-PathEntry $env:QT_DIR
-Add-PathEntry (Join-Path $env:QT_DIR 'bin')
-#endregion
-
-#region 5. Aliases
-Set-Alias -Name vs2017 -Value "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2017\Professional\Common7\IDE\devenv.exe" -Scope Global -Force
-Set-Alias -Name vs2022 -Value "$env:ProgramFiles\Microsoft Visual Studio\2022\Professional\Common7\IDE\devenv.exe" -Scope Global -Force
-
+#region 4. Aliases
 # Enter a VS2022 Developer PowerShell in-place. -SkipAutomaticLocation keeps the
 # current directory (Enter-VsDevShell would otherwise cd to the VS install).
 # Target by -VsInstallPath (stable) rather than a machine-specific instance id.
@@ -149,9 +136,6 @@ function vsshell {
         Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation
     }
 }
-
-function cp_sdk { & "$env:USERPROFILE\.local\bin\sync-bin\cp_sdk.bat" @args }
-function gen_prj { python "$env:USERPROFILE\work\upd-sln\gen_prj.py" @args }
 
 # match zsh: alias clear='clear && printf "\e[3J"' -- also wipe the scrollback buffer.
 # (aliases outrank functions in PowerShell, so override the built-in `clear` alias)
@@ -183,6 +167,12 @@ function top {
         }
     } | Sort-Object 'CPU%', 'WS(MB)' -Descending | Select-Object -First $Count | Format-Table -AutoSize
 }
+#endregion
+
+#region 5. Local overrides (git-ignored, machine-specific)
+# env.ps1 holds per-machine secrets/paths and stays out of version control.
+$LocalEnv = Join-Path $PSScriptRoot 'env.ps1'
+if (Test-Path -LiteralPath $LocalEnv -PathType Leaf) { . $LocalEnv }
 #endregion
 
 #region 6. Prompt
