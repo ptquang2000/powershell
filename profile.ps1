@@ -65,6 +65,7 @@ Set-PSReadLineOption -PredictionSource History
 Set-PSReadLineOption -PredictionViewStyle InlineView
 Set-PSReadLineOption -ShowToolTips
 Set-PSReadLineOption -CompletionQueryItems 65
+Set-PSReadLineOption -ExtraPromptLineCount 1
 
 # syntax highlighting: color tokens as you type
 # gruvbox-material (dark medium) palette, truecolor
