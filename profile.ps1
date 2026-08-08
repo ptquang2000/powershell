@@ -131,7 +131,7 @@ Add-PathEntry (Join-Path $env:USERPROFILE '.opencode\bin') -Prepend   # zsh: PAT
 function vsshell {
     $vsPath = "$env:ProgramFiles\Microsoft Visual Studio\2022\Professional"
     Import-Module "$vsPath\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
-    Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments ('-nologo' $args -join ' ')
+    Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments ((@('-no_logo') + $args) -join ' ')
 }
 
 # match zsh: alias clear='clear && printf "\e[3J"' -- also wipe the scrollback buffer.
