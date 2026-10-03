@@ -8,7 +8,8 @@ param([string]$selected)
 
 $searchPaths = @(
     "$env:USERPROFILE",
-    "$env:USERPROFILE\work"
+    "$env:USERPROFILE\work",
+    "$env:USERPROFILE\personal"
 )
 $pathDepth = 0
 $session = $env:PSMUX_SESSION
