@@ -11,8 +11,8 @@ $searchPaths = @(
     "$env:USERPROFILE\work",
     "$env:USERPROFILE\personal"
 )
-$pathDepth = 0
 $session = $env:PSMUX_SESSION
+$wasInside = [bool]($env:PSMUX_SESSION -or $env:TMUX)
 
 if (-not $selected) {
     $selected = @(
@@ -47,10 +47,15 @@ try {
         }
     }
 } finally {
-    $env:PSMUX_SESSION = $session
-    if ($env:TMUX -or $session) {
-        psmux switch-client -t $name
-    } else {
-        psmux attach $name
-    }
+    # Don't restore yet - we need to switch while nesting guard is bypassed
 }
+
+# Switch or attach while outside the nesting context
+if ($wasInside) {
+    psmux switch-client -t $name
+} else {
+    psmux attach $name
+}
+
+# Restore original nesting state
+$env:PSMUX_SESSION = $session
