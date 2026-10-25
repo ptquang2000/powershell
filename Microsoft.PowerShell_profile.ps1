@@ -44,16 +44,6 @@ function Add-PathEntry {
 #endregion
 
 #region 2. PSReadLine -- native equivalents of the zsh plugins + bindkeys
-#  zsh-autosuggestions (inline ghost)   -> -PredictionSource History + InlineView
-#  zsh-syntax-highlighting              -> -Colors token coloring
-#  zsh-history-substring-search         -> HistorySearchBackward/Forward on Up/Down
-#  zsh-autocomplete (menu)              -> MenuComplete on Tab
-#  matcher-list case-insensitive        -> PowerShell completion is CI by default
-
-# history is in-memory only (SaveNothing) -- each session starts fresh, so
-# autosuggestions never surface commands from previous sessions. This diverges
-# from zsh's persistent+shared history on purpose. The other options still apply
-# within the session: cap, dedup (hist_ignore_dups), and hist_ignore_space.
 Set-PSReadLineOption -HistorySaveStyle SaveNothing
 Set-PSReadLineOption -MaximumHistoryCount 10000
 Set-PSReadLineOption -HistoryNoDuplicates                    # hist_ignore_dups
@@ -124,46 +114,11 @@ Add-PathEntry (Join-Path $env:USERPROFILE '.opencode\bin') -Prepend   # zsh: PAT
 #endregion
 
 #region 4. Aliases
-# Enter a VS2022 Developer PowerShell in-place. -SkipAutomaticLocation keeps the
-# current directory (Enter-VsDevShell would otherwise cd to the VS install).
-# Target by -VsInstallPath (stable) rather than a machine-specific instance id.
-# Any args pass through to VsDevCmd, e.g. `vsshell -arch=x64 -host_arch=x64`.
-function vsshell {
-    $vsPath = "$env:ProgramFiles\Microsoft Visual Studio\2022\Professional"
-    Import-Module "$vsPath\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
-    Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments ((@('-no_logo') + $args) -join ' ')
-}
-
 # match zsh: alias clear='clear && printf "\e[3J"' -- also wipe the scrollback buffer.
 # (aliases outrank functions in PowerShell, so override the built-in `clear` alias)
 function Clear-Screen { Clear-Host; [Console]::Write("$([char]27)[3J") }
 Set-Alias -Name clear -Value Clear-Screen -Scope Global -Force
 
-# `top` -- Task-Manager-style live CPU% + working set, sorted by CPU.
-# CPU% is the delta of accumulated CPU time over the sampling window, normalized
-# by logical core count (same math as Task Manager) -- so a process pinning one
-# core on an 8-core box reads ~12.5%, and the total across all rows tops out near
-# 100%. This two-snapshot approach avoids Get-Counter's flaky invalid-sample data.
-#   top            # top 15 over a 1s window
-#   top 30         # top 30 rows
-#   top 30 3       # top 30 over a 3s window (better on a mostly-idle machine)
-function top {
-    param([int]$Count = 15, [double]$Interval = 1)
-
-    $cores = [Environment]::ProcessorCount
-    $t1 = @{}; Get-Process | ForEach-Object { $t1[$_.Id] = $_.CPU }
-    Start-Sleep -Seconds $Interval
-    Get-Process | ForEach-Object {
-        $old = $t1[$_.Id]
-        $cpu = if ($null -ne $old) { (($_.CPU - $old) / $Interval / $cores) * 100 } else { 0 }
-        [PSCustomObject]@{
-            Name     = $_.ProcessName
-            Id       = $_.Id
-            'CPU%'   = [math]::Round($cpu, 1)
-            'WS(MB)' = [math]::Round($_.WorkingSet64 / 1MB, 1)
-        }
-    } | Sort-Object 'CPU%', 'WS(MB)' -Descending | Select-Object -First $Count | Format-Table -AutoSize
-}
 #endregion
 
 #region 5. Local overrides (git-ignored, machine-specific)
@@ -175,8 +130,6 @@ if (Test-Path -LiteralPath $LocalEnv -PathType Leaf) { . $LocalEnv }
 #region 6. Prompt
 . (Join-Path $PSScriptRoot 'mnml-prompt.ps1')
 
-# keep the mnml prompt's $script:PromptViMode in sync with PSReadLine's vi mode
-# (no-op under the default Windows edit mode -- the handler never fires)
 try {
     Set-PSReadLineOption -ViModeIndicator Script -ViModeChangeHandler {
         param([Microsoft.PowerShell.ViMode]$mode)
